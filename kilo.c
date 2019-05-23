@@ -16,7 +16,7 @@
 /*** defines ***/
 
 #define KILO_VERSION "0.0.1"
-#define KILO_TAB_STOP 8
+#define KILO_TAB_STOP 4
 #define KILO_QUIT_TIMES 3
 
 #define CTRL_KEY(k) ((k) & 0x1f)
@@ -105,6 +105,15 @@ char *C_HL_keywords[] = {
     "void|", NULL
 };
 
+char *HS_HL_extensions[] = { ".hs", NULL };
+char *HS_HL_keywords[] = {
+	"::", "->", "class", "instance", "where", "module", "type", "data", 
+	"deriving", "import",
+
+
+	"Int|", "Bool|", "String|", "Char|", NULL
+};
+
 struct editorSyntax HLDB[] = {
     {
         "c",
@@ -112,7 +121,14 @@ struct editorSyntax HLDB[] = {
         C_HL_keywords,
         "//", "/*", "*/",
         HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS
-    }
+    },
+	{
+		"hs",
+		HS_HL_extensions,
+		HS_HL_keywords,
+		"--", "{-", "-}",
+		HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS
+	}
 };
 
 #define HLDB_ENTRIES (sizeof(HLDB) / sizeof(HLDB[0]))
