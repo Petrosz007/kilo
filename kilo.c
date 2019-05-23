@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -80,6 +81,7 @@ struct editorConfig
     int rx;
     int rowoff;
     int coloff;
+    int numlen;
     int screenrows;
     int screencols;
     int numrows;
@@ -569,6 +571,8 @@ void editorInsertRow(int at, char *s, size_t len)
 
     E.numrows++;
     E.dirty++;
+
+    E.numlen = (int) ceil(log10(E.numrows)) + 1;
 }
 
 void editorFreeRow(erow *row)
@@ -588,8 +592,9 @@ void editorDelRow(int at)
     for(int j = at; j < E.numrows - 1; ++j) E.row[j].idx--;
 
     E.numrows--;
-
     E.dirty++;
+
+    E.numlen = (int) ceil(log10(E.numrows)) + 1;
 }
 
 void editorRowAppendString(erow *row, char *s, size_t len)
@@ -920,9 +925,9 @@ void editorScroll()
         E.coloff = E.rx;
     }
 
-    if(E.rx >= E.coloff + E.screencols)
+    if(E.rx >= E.coloff + E.screencols + E.numlen)
     {
-        E.coloff = E.rx - E.screencols + 1;
+        E.coloff = E.rx - E.screencols + E.numlen + 1;
     }
 }
 
@@ -959,9 +964,16 @@ void editorDrawRows(struct abuf *ab)
         }
         else
         {
+            abAppend(ab, "\x1b[33m", 5);
+            char buf[16];			
+            int numlen = snprintf(buf, sizeof(buf), "%*d ", (int) ceil(log10(E.numrows)),
+                    E.row[filerow].idx + 1);
+            abAppend(ab, buf, numlen);
+            abAppend(ab, "\x1b[39m", 5);
+
             int len = E.row[filerow].rsize - E.coloff;
             if(len < 0) len = 0;
-            if(len > E.screencols) len = E.screencols;
+            if(len > (E.screencols - numlen)) len = E.screencols - numlen;
 
             char *c = &E.row[filerow].render[E.coloff];
             unsigned char *hl = &E.row[filerow].hl[E.coloff];
@@ -1077,7 +1089,7 @@ void editorRefreshScreen()
     editorDrawMessageBar(&ab);
 
     char buf[32];
-    snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1);
+    snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1, (E.rx - E.coloff + E.numlen) + 1);
     abAppend(&ab, buf, strlen(buf));
 
     abAppend(&ab, "\x1b[?25h", 6);      // Show the cursor
@@ -1303,6 +1315,7 @@ void initEditor()
     E.rx = 0;
     E.rowoff = 0;
     E.coloff = 0;
+    E.numlen = 0;
     E.numrows = 0;
     E.row = NULL;
     E.dirty = 0;
