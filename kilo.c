@@ -110,10 +110,10 @@ char *C_HL_keywords[] = {
 char *HS_HL_extensions[] = { ".hs", NULL };
 char *HS_HL_keywords[] = {
 	"::", "->", "class", "instance", "where", "module", "type", "data", 
-	"deriving", "import",
+	"deriving", "import", "newtype",
 
 
-	"Int|", "Bool|", "String|", "Char|", NULL
+	"Int|", "Bool|", "String|", "Char|", "LANGUAGE|", NULL
 };
 
 struct editorSyntax HLDB[] = {
