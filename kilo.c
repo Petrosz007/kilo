@@ -635,6 +635,15 @@ void editorRowDelChar(erow *row, int at)
 }
 
 /*** editor operations ***/
+
+int editorGetIndentation(erow *row)
+{
+    int j = 0;
+    while(row->render[j] == ' ') { ++j; }
+
+    return j;
+}
+
 void editorInsertChar(int c)
 {
     if(E.cy == E.numrows)
@@ -648,14 +657,18 @@ void editorInsertChar(int c)
 
 void editorInsertNewLine()
 {
+    char buf[100];
+    int soft_indent = snprintf(buf, sizeof(buf), "%*s", editorGetIndentation(&E.row[E.cy]), "");
+
     if(E.cx == 0)
     {
-        editorInsertRow(E.cy, "", 0);
+        editorInsertRow(E.cy, buf, soft_indent);
     }
     else
     {
         erow *row = &E.row[E.cy];
-        editorInsertRow(E.cy + 1, &row->chars[E.cx], row->size - E.cx);
+        editorInsertRow(E.cy + 1, buf, soft_indent);
+        editorRowAppendString(&E.row[E.cy + 1], &row->chars[E.cx], row->size - E.cx);
         row = &E.row[E.cy];
         row->size = E.cx;
         row->chars[row->size] = '\0';
@@ -664,7 +677,7 @@ void editorInsertNewLine()
     }
 
     E.cy++;
-    E.cx = 0;
+    E.cx = soft_indent;
 }
 
 void editorDelChar()
@@ -758,7 +771,7 @@ void editorSave()
     }
 
     int len;
-    char *buf= editorRowsToString(&len);
+    char *buf = editorRowsToString(&len);
 
     int fd = open(E.filename, O_RDWR | O_CREAT, 0644);
     if(fd != -1)
