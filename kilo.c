@@ -19,6 +19,7 @@
 #define KILO_VERSION "0.0.1"
 #define KILO_TAB_STOP 4
 #define KILO_QUIT_TIMES 3
+#define KILO_MOUSE_SCROLL 4
 
 #define CTRL_KEY(k) ((k) & 0x1f)
 
@@ -73,6 +74,7 @@ typedef struct erow
     char *render;
     unsigned char *hl;
     int hl_open_comment;
+    int commented;
 } erow;
 
 struct editorConfig
@@ -517,6 +519,14 @@ int editorRowRxToCx(erow *row, int rx)
     return cx;
 }
 
+int editorGetIndentation(erow *row)
+{
+    int j = 0;
+    while(row->render[j] == ' ') { ++j; }
+
+    return j;
+}
+
 void editorUpdateRow(erow *row)
 {
     int tabs = 0;
@@ -567,6 +577,7 @@ void editorInsertRow(int at, char *s, size_t len)
     E.row[at].render = NULL;
     E.row[at].hl = NULL;
     E.row[at].hl_open_comment = 0;
+    E.row[at].commented = 0;
     editorUpdateRow(&E.row[at]);
 
     E.numrows++;
@@ -634,15 +645,46 @@ void editorRowDelChar(erow *row, int at)
     E.dirty++;
 }
 
-/*** editor operations ***/
-
-int editorGetIndentation(erow *row)
+void editorCommentRow(erow *row)
 {
-    int j = 0;
-    while(row->render[j] == ' ') { ++j; }
+    char *scs = E.syntax->singleline_comment_start;
+    if(scs == NULL) return;
 
-    return j;
+    int len = strlen(scs);
+    int indent = editorGetIndentation(row);
+
+    row->chars = realloc(row->chars, row->size + len + 1);
+    memmove(&row->chars[indent + len + 1], &row->chars[indent], row->size - indent);
+    memcpy(&row->chars[indent], scs, len);
+
+    row->chars[indent + len] = ' ';
+    row->size = row->size + len + 1;
+
+    ++E.dirty;
 }
+
+void editorUnCommentRow(erow *row)
+{
+    char *scs = E.syntax->singleline_comment_start;
+    if(scs == NULL) return;
+
+    int len = strlen(scs);
+    int indent = editorGetIndentation(row);
+
+    if(strncmp(&row->chars[indent], scs, len))
+    {
+        return;
+    }
+
+    memmove(&row->chars[indent], &row->chars[indent + len + 1], row->size - indent - len);
+    row->chars = realloc(row->chars, row->size - len - 1);
+
+    row->size = row->size - len - 1;
+
+    ++E.dirty;
+}
+
+/*** editor operations ***/
 
 void editorInsertChar(int c)
 {
@@ -698,6 +740,25 @@ void editorDelChar()
         editorDelRow(E.cy);
         E.cy--;
     }
+}
+
+void editorToggleComment()
+{
+    if(E.cy == E.numrows) return;
+
+    erow *row = &E.row[E.cy];
+    if(row->commented)
+    {
+        editorUnCommentRow(row);
+        row->commented = 0;
+    }
+    else
+    {
+        editorCommentRow(row);
+        row->commented = 1;
+    }
+
+    editorUpdateRow(row);
 }
 
 /*** file i/o ***/
@@ -1235,6 +1296,21 @@ void editorProcessKeypress()
     {
         case '\r':
             editorInsertNewLine();
+        break;
+
+        case CTRL_KEY('e'):
+        case CTRL_KEY('y'):
+        {
+            int times = KILO_MOUSE_SCROLL;
+            while(times--)
+            {
+                editorMoveCursor(c == CTRL_KEY('y') ? ARROW_UP : ARROW_DOWN);
+            }
+        }
+        break;
+
+        case CTRL_KEY('t'):
+            editorToggleComment();
         break;
 
         case CTRL_KEY('q'):
